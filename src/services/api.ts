@@ -1,0 +1,2287 @@
+import axios from 'axios';
+import type {
+  ApiResponse,
+  HealthCheckResponse,
+  AuthResponse,
+  UserProfile,
+  DashboardStats,
+} from '@/contracts';
+
+export type { UserProfile, AuthResponse };
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('ss_access_token') || localStorage.getItem('admin_token');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const checkSystemHealth = async (): Promise<HealthCheckResponse> => {
+  const response = await apiClient.get<ApiResponse<HealthCheckResponse>>('/health');
+  return response.data.data;
+};
+
+// ================= Search API Interfaces =================
+export interface FlightApiResponse {
+  id: string;
+  airline: string;
+  airline_code: string;
+  flight_number: string;
+  aircraft?: string;
+  origin: {
+    code: string;
+    name: string;
+    city: string;
+    country: string;
+  };
+  destination: {
+    code: string;
+    name: string;
+    city: string;
+    country: string;
+  };
+  departure_time: string;
+  arrival_time: string;
+  duration_minutes: number;
+  stops: number;
+  stops_info?: string;
+  cabin_class: string;
+  available_seats: number;
+  base_fare: number;
+  taxes: number;
+  total_price: number;
+  currency: string;
+  route?: string;
+  logo_url?: string;
+  baggage_info?: string;
+  tags?: string[];
+  is_simulated?: boolean;
+}
+
+export interface HotelRoomApiResponse {
+  id: string;
+  room_type: string;
+  bed_type: string;
+  max_occupancy: number;
+  price_per_night: number;
+  taxes_per_night: number;
+  available_rooms: number;
+  amenities?: string[];
+  images?: string[];
+  is_available: boolean;
+}
+
+export interface HotelApiResponse {
+  id: string;
+  name: string;
+  property_type: string;
+  partner_id?: string;
+  publication_status: string;
+  star_rating: number;
+  guest_rating: number;
+  rating_label: string;
+  review_count: number;
+  address: string;
+  city: string;
+  country: string;
+  neighborhood?: string;
+  overview: string;
+  amenities?: string[];
+  tags?: string[];
+  featured_image: string;
+  images?: string[];
+  starting_price: number;
+  currency: string;
+  route?: string;
+  featured?: boolean;
+  is_simulated?: boolean;
+  rooms?: HotelRoomApiResponse[];
+}
+
+export interface TrainApiResponse {
+  id: string;
+  train_number: string;
+  train_name: string;
+  train_type: string;
+  from_station_code: string;
+  from_station_name: string;
+  from_city: string;
+  to_station_code: string;
+  to_station_name: string;
+  to_city: string;
+  departure_time: string;
+  arrival_time: string;
+  duration_minutes: number;
+  train_class: string;
+  available_seats: number;
+  base_fare: number;
+  rating: number;
+  currency: string;
+  route?: string;
+  is_simulated?: boolean;
+}
+
+export interface BusApiResponse {
+  id: string;
+  operator_name: string;
+  bus_type: string;
+  from_city: string;
+  to_city: string;
+  boarding_point?: string;
+  dropping_point?: string;
+  departure_time: string;
+  arrival_time: string;
+  duration_minutes: number;
+  available_seats: number;
+  base_fare: number;
+  rating: number;
+  currency: string;
+  route?: string;
+  is_simulated?: boolean;
+}
+
+export interface CabApiResponse {
+  id: string;
+  cab_type: string;
+  vehicle_model: string;
+  city: string;
+  pickup_area: string;
+  drop_area: string;
+  driver_name: string;
+  driver_rating: number;
+  capacity: number;
+  base_fare: number;
+  currency: string;
+  route?: string;
+  eta_minutes: number;
+  features?: string[];
+  is_simulated?: boolean;
+}
+
+export interface PackageApiResponse {
+  id: string;
+  package_id?: string;
+  slug?: string;
+  title: string;
+  destination: string;
+  region?: string;
+  theme?: string;
+  package_type?: string;
+  duration?: string;
+  duration_days: number;
+  duration_nights: number;
+  overview: string;
+  inclusions?: string[];
+  exclusions?: string[];
+  highlights?: string[];
+  places_covered?: string[];
+  activities?: string[];
+  hotel_category?: string;
+  transfers?: string;
+  meals?: string;
+  sightseeing?: string;
+  best_time_to_visit?: string;
+  suitable_for?: string;
+  offer_title?: string;
+  offer_description?: string;
+  cancellation_policy?: string;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  day_wise_itinerary_text?: string;
+  itinerary?: Array<{ day?: number; title?: string; description?: string }>;
+  itineraries?: Array<{ day_number: number; destination?: string; title?: string; description?: string }>;
+  price_per_person: number;
+  old_price?: number;
+  discount_percent?: number;
+  currency: string;
+  route?: string;
+  featured_image: string;
+  rating: number;
+  available_capacity: number;
+  publication_status?: string;
+  is_simulated?: boolean;
+}
+
+// ================= Flights API =================
+export const searchFlightsApi = async (params?: {
+  from_city?: string;
+  to_city?: string;
+  from_code?: string;
+  to_code?: string;
+  cabin_class?: string;
+  max_price?: number;
+  non_stop?: boolean;
+}): Promise<FlightApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: FlightApiResponse[]; pagination: any }>>('/flights', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= Hotels API =================
+export const searchHotelsApi = async (params?: {
+  city?: string;
+  min_stars?: number;
+  max_price?: number;
+  featured_only?: boolean;
+}): Promise<HotelApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: HotelApiResponse[]; pagination: any }>>('/hotels', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= Trains API =================
+export const searchTrainsApi = async (params?: {
+  from_city?: string;
+  to_city?: string;
+  from_station?: string;
+  to_station?: string;
+  train_class?: string;
+  max_price?: number;
+}): Promise<TrainApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: TrainApiResponse[]; pagination: any }>>('/trains', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= Buses API =================
+export const searchBusesApi = async (params?: {
+  from_city?: string;
+  to_city?: string;
+  max_price?: number;
+}): Promise<BusApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: BusApiResponse[]; pagination: any }>>('/buses', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= Cabs API =================
+export const searchCabsApi = async (params?: {
+  city?: string;
+  cab_type?: string;
+  max_price?: number;
+}): Promise<CabApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: CabApiResponse[]; pagination: any }>>('/cabs', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= Holiday Packages API =================
+export const searchPackagesApi = async (params?: {
+  destination?: string;
+  region?: string;
+  theme?: string;
+  package_type?: string;
+  max_price?: number;
+  min_price?: number;
+  min_days?: number;
+  max_days?: number;
+  sort_by?: string;
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PackageApiResponse[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: PackageApiResponse[]; pagination: any }>>('/packages', { params });
+  return res.data?.data?.items || [];
+};
+
+export const getPackageDetailsApi = async (idOrSlug: string): Promise<PackageApiResponse | null> => {
+  const res = await apiClient.get<ApiResponse<PackageApiResponse>>(`/packages/${idOrSlug}`);
+  return res.data?.data || null;
+};
+
+// ================= Bookings API =================
+export const createBookingApi = async (payload: {
+  service_type: string;
+  guest_name?: string;
+  contact_email: string;
+  contact_phone: string;
+  check_in_date?: string;
+  check_out_date?: string;
+  promo_code?: string;
+  has_insurance?: boolean;
+  items: Array<{
+    item_type: string;
+    item_reference_id: string;
+    quantity: number;
+    hotel_id?: string;
+    room_id?: string;
+    check_in_date?: string;
+    check_out_date?: string;
+    meta_data?: any;
+  }>;
+  passengers: Array<{
+    title?: string;
+    first_name: string;
+    last_name: string;
+    passenger_type?: string;
+    gender?: string;
+    date_of_birth?: string;
+    passport_number?: string;
+    seat_preference?: string;
+  }>;
+}): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/bookings', payload);
+  return res.data.data;
+};
+
+export const payDemoBookingApi = async (payload: {
+  booking_id: string;
+  payment_method?: string;
+  simulate_failure?: boolean;
+  card_last_four?: string;
+  reservation_id?: string;
+}): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/payments/demo', payload);
+  return res.data.data;
+};
+
+// ================= Razorpay Payment APIs =================
+export interface RazorpayOrderData {
+  key_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
+  route?: string;
+  booking_id: string;
+  booking_reference: string;
+  service_type: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+}
+
+export interface RazorpayVerifyData {
+  success: boolean;
+  payment_id: string;
+  order_id: string;
+  booking_id: string;
+  booking_reference: string;
+  status: string;
+  amount: number;
+  currency: string;
+  route?: string;
+  message: string;
+}
+
+export const createRazorpayOrderApi = async (payload: {
+  booking_id: string;
+  guest_token?: string;
+}): Promise<RazorpayOrderData> => {
+  const res = await apiClient.post<ApiResponse<RazorpayOrderData>>('/payments/razorpay/order', payload);
+  return res.data.data;
+};
+
+export const verifyRazorpayPaymentApi = async (payload: {
+  booking_id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  guest_token?: string;
+}): Promise<RazorpayVerifyData> => {
+  const res = await apiClient.post<ApiResponse<RazorpayVerifyData>>('/payments/razorpay/verify', payload);
+  return res.data.data;
+};
+
+export const getMyTripsApi = async (): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<any[]>>('/bookings/my-trips');
+  return res.data.data;
+};
+
+export const cancelBookingApi = async (bookingId: string, reason: string): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>(`/bookings/${bookingId}/cancel`, { reason });
+  return res.data.data;
+};
+
+// ================= Customer Auth API =================
+export const loginApi = async (email: string, password: string): Promise<AuthResponse> => {
+  const res = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', { email, password });
+  const data = res.data.data;
+  const token = data?.tokens?.accessToken || (data?.tokens as any)?.access_token;
+  if (token) {
+    localStorage.setItem('ss_access_token', token); localStorage.setItem('admin_token', token);
+  }
+  return data;
+};
+
+export const demoLoginApi = async (role: 'CUSTOMER' | 'ADMIN' | 'PARTNER' = 'CUSTOMER'): Promise<AuthResponse> => {
+  const res = await apiClient.post<ApiResponse<AuthResponse>>('/auth/demo-login', { role });
+  const data = res.data.data;
+  const token = data?.tokens?.accessToken || (data?.tokens as any)?.access_token;
+  if (token) {
+    localStorage.setItem('ss_access_token', token); localStorage.setItem('admin_token', token);
+  }
+  return data;
+};
+
+export const registerApi = async (payload: {
+  email: string;
+  full_name: string;
+  password: string;
+  phone?: string;
+}): Promise<AuthResponse> => {
+  const res = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', payload);
+  const data = res.data.data;
+  const token = data?.tokens?.accessToken || (data?.tokens as any)?.access_token;
+  if (token) {
+    localStorage.setItem('ss_access_token', token); localStorage.setItem('admin_token', token);
+  }
+  return data;
+};
+
+export const getCurrentUserApi = async (): Promise<UserProfile | null> => {
+  const token = (localStorage.getItem('ss_access_token') || (localStorage.getItem('admin_token') || localStorage.getItem('ss_access_token')));
+  if (!token) return null;
+  try {
+    const res = await apiClient.get<ApiResponse<UserProfile>>('/auth/me');
+    return res.data.data;
+  } catch {
+    localStorage.removeItem('ss_access_token'); localStorage.removeItem('admin_token');
+    return null;
+  }
+};
+
+export const logoutApi = (): void => {
+  localStorage.removeItem('ss_access_token'); localStorage.removeItem('admin_token');
+};
+
+// ================= myBiz Corporate Travel API =================
+
+export interface MyBizContext {
+  is_biz_user: boolean;
+  company_id?: string;
+  company_name?: string;
+  biz_role?: 'BIZ_ADMIN' | 'BIZ_APPROVER' | 'BIZ_EMPLOYEE';
+  department?: string;
+}
+
+export interface MyBizCompany {
+  id: string;
+  name: string;
+  account_type?: 'CORPORATE' | 'AGENCY';
+  verification_status?: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+  contact_person_name?: string;
+  contact_person_phone?: string;
+  credit_limit?: number;
+  used_credit?: number;
+  gstin?: string;
+  pan?: string;
+  industry?: string;
+  company_size?: string;
+  employee_count_range?: string;
+  address?: string;
+  billing_address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  postal_code?: string;
+  billing_email?: string;
+  billing_phone?: string;
+  website?: string;
+  is_active: boolean;
+  created_at: string;
+  employee_count?: number;
+}
+
+export interface MyBizEmployee {
+  id: string;
+  company_id: string;
+  user_id?: string;
+  email: string;
+  full_name: string;
+  phone?: string;
+  role: string;
+  department?: string;
+  designation?: string;
+  status: 'ACTIVE' | 'INVITED' | 'DEACTIVATED';
+  monthly_budget?: number;
+  used_budget_this_month?: number;
+  booking_permission?: string;
+  commission_rate?: number;
+  booking_count?: number;
+  total_spent?: number;
+  created_at: string;
+}
+
+export interface MyBizTravelPolicy {
+  id: string;
+  company_id: string;
+  name: string;
+  is_active: boolean;
+  rules?: {
+    flight_max_budget?: number;
+    hotel_max_budget?: number;
+    cab_max_budget?: number;
+    bus_max_budget?: number;
+    train_max_budget?: number;
+    package_max_budget?: number;
+    allowed_flight_classes?: string[];
+    allowed_hotel_stars?: number[];
+    advance_booking_days?: number;
+    requires_approval?: boolean;
+    international_requires_approval?: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MyBizTripRequest {
+  id: string;
+  company_id: string;
+  employee_user_id: string;
+  employee_name?: string;
+  employee_email?: string;
+  approver_user_id?: string;
+  service_type: string;
+  trip_purpose?: string;
+  destination?: string;
+  travel_date_from?: string;
+  travel_date_to?: string;
+  estimated_amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  rejection_reason?: string;
+  booking_id?: string;
+  created_at: string;
+}
+
+export interface MyBizInvoice {
+  id: string;
+  company_id: string;
+  booking_id: string;
+  invoice_number: string;
+  gstin?: string;
+  company_name: string;
+  billing_address?: string;
+  base_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  currency: string;
+  route?: string;
+  tax_breakdown?: Record<string, any>;
+  created_at: string;
+}
+
+export interface MyBizReport {
+  total_bookings: number;
+  total_spend: number;
+  total_tax: number;
+  average_booking_value: number;
+  spend_by_service: Record<string, number>;
+  spend_by_department: Record<string, number>;
+  spend_by_month: Record<string, number>;
+  pending_approvals: number;
+  active_employees: number;
+}
+
+export const getMyBizContextApi = async (): Promise<MyBizContext> => {
+  const res = await apiClient.get<ApiResponse<MyBizContext>>('/mybiz/context');
+  return res.data.data;
+};
+
+export const registerMyBizApi = async (payload: {
+  company_name: string;
+  gstin?: string;
+  pan?: string;
+  industry?: string;
+  employee_count_range: string;
+  billing_address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  website?: string;
+}): Promise<MyBizCompany> => {
+  const res = await apiClient.post<ApiResponse<MyBizCompany>>('/mybiz/register', payload);
+  return res.data.data;
+};
+
+export const getMyBizCompanyApi = async (): Promise<MyBizCompany> => {
+  const res = await apiClient.get<ApiResponse<MyBizCompany>>('/mybiz/company');
+  return res.data.data;
+};
+
+export const updateMyBizCompanyApi = async (payload: Partial<MyBizCompany>): Promise<MyBizCompany> => {
+  const res = await apiClient.put<ApiResponse<MyBizCompany>>('/mybiz/company', payload);
+  return res.data.data;
+};
+
+export const getMyBizEmployeesApi = async (): Promise<MyBizEmployee[]> => {
+  const res = await apiClient.get<ApiResponse<MyBizEmployee[]>>('/mybiz/employees');
+  return res.data.data;
+};
+
+export const addMyBizEmployeeApi = async (payload: {
+  email: string;
+  full_name: string;
+  role?: string;
+  department?: string;
+  designation?: string;
+}): Promise<MyBizEmployee> => {
+  const res = await apiClient.post<ApiResponse<MyBizEmployee>>('/mybiz/employees', payload);
+  return res.data.data;
+};
+
+export const updateMyBizEmployeeApi = async (
+  employeeId: string,
+  payload: { role?: string; department?: string; designation?: string; status?: string }
+): Promise<MyBizEmployee> => {
+  const res = await apiClient.put<ApiResponse<MyBizEmployee>>(`/mybiz/employees/${employeeId}`, payload);
+  return res.data.data;
+};
+
+export const deleteMyBizEmployeeApi = async (employeeId: string): Promise<void> => {
+  await apiClient.delete(`/mybiz/employees/${employeeId}`);
+};
+
+export const getMyBizPolicyApi = async (): Promise<MyBizTravelPolicy> => {
+  const res = await apiClient.get<ApiResponse<MyBizTravelPolicy>>('/mybiz/policy');
+  return res.data.data;
+};
+
+export const updateMyBizPolicyApi = async (payload: {
+  name?: string;
+  rules?: any;
+  is_active?: boolean;
+}): Promise<MyBizTravelPolicy> => {
+  const res = await apiClient.put<ApiResponse<MyBizTravelPolicy>>('/mybiz/policy', payload);
+  return res.data.data;
+};
+
+export const getMyBizTripRequestsApi = async (statusFilter?: string): Promise<MyBizTripRequest[]> => {
+  const res = await apiClient.get<ApiResponse<MyBizTripRequest[]>>('/mybiz/trip-requests', {
+    params: statusFilter ? { status_filter: statusFilter } : {},
+  });
+  return res.data.data;
+};
+
+export const createMyBizTripRequestApi = async (payload: {
+  service_type: string;
+  trip_purpose?: string;
+  destination?: string;
+  travel_date_from?: string;
+  travel_date_to?: string;
+  estimated_amount: number;
+}): Promise<MyBizTripRequest> => {
+  const res = await apiClient.post<ApiResponse<MyBizTripRequest>>('/mybiz/trip-requests', payload);
+  return res.data.data;
+};
+
+export const approveMyBizTripRequestApi = async (requestId: string): Promise<MyBizTripRequest> => {
+  const res = await apiClient.post<ApiResponse<MyBizTripRequest>>(`/mybiz/trip-requests/${requestId}/approve`);
+  return res.data.data;
+};
+
+export const rejectMyBizTripRequestApi = async (
+  requestId: string,
+  rejectionReason?: string
+): Promise<MyBizTripRequest> => {
+  const res = await apiClient.post<ApiResponse<MyBizTripRequest>>(`/mybiz/trip-requests/${requestId}/reject`, {
+    rejection_reason: rejectionReason,
+  });
+  return res.data.data;
+};
+
+export const getMyBizInvoicesApi = async (): Promise<MyBizInvoice[]> => {
+  const res = await apiClient.get<ApiResponse<MyBizInvoice[]>>('/mybiz/invoices');
+  return res.data.data;
+};
+
+export const getMyBizReportsApi = async (): Promise<MyBizReport> => {
+  const res = await apiClient.get<ApiResponse<MyBizReport>>('/mybiz/reports');
+  return res.data.data;
+};
+
+export const getMyBizBookingsApi = async (): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<any[]>>('/mybiz/bookings');
+  return res.data.data;
+};
+
+// ================= SS Journey myBiz B2B APIs =================
+export const registerBusinessApi = async (payload: {
+  account_type: 'CORPORATE' | 'AGENCY';
+  company_name: string;
+  billing_email: string;
+  contact_person_name: string;
+  contact_person_phone?: string;
+  password: string;
+  industry?: string;
+  company_size?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  gstin?: string;
+  pan?: string;
+  website?: string;
+}): Promise<{ token: string; user: UserProfile; company: MyBizCompany; employee: MyBizEmployee }> => {
+  const res = await apiClient.post<ApiResponse<{ token: string; user: UserProfile; company: MyBizCompany; employee: MyBizEmployee }>>(
+    '/business/register',
+    payload
+  );
+  if (res.data.data.token) {
+    localStorage.setItem('auth_token', res.data.data.token);
+  }
+  return res.data.data;
+};
+
+export const loginBusinessApi = async (payload: {
+  email: string;
+  password: string;
+}): Promise<{ token: string; user: UserProfile; company: MyBizCompany; employee: MyBizEmployee }> => {
+  const res = await apiClient.post<ApiResponse<{ token: string; user: UserProfile; company: MyBizCompany; employee: MyBizEmployee }>>(
+    '/business/login',
+    payload
+  );
+  if (res.data.data.token) {
+    localStorage.setItem('auth_token', res.data.data.token);
+  }
+  return res.data.data;
+};
+
+export interface BusinessDashboardData {
+  company: MyBizCompany;
+  employee: MyBizEmployee;
+  metrics: {
+    totalBookings: number;
+    totalSpend: number;
+    upcomingTrips: number;
+    pendingApprovals: number;
+    activeMembers: number;
+    pendingInvoiceAmount: number;
+    totalInvoices: number;
+    creditLimit: number;
+    usedCredit: number;
+    availableCredit: number;
+  };
+  recentBookings: any[];
+  recentTripRequests: any[];
+  recentInvoices: any[];
+  spendTrend: { month_label: string; monthly_spend: number; booking_count: number }[];
+}
+
+export const getBusinessDashboardApi = async (): Promise<BusinessDashboardData> => {
+  const res = await apiClient.get<ApiResponse<BusinessDashboardData>>('/business/dashboard');
+  return res.data.data;
+};
+
+export const validateBusinessPolicyApi = async (payload: {
+  service_type: string;
+  amount: number;
+  travel_class?: string;
+  star_rating?: number;
+}): Promise<{ is_compliant: boolean; requires_approval: boolean; violations: string[] }> => {
+  const res = await apiClient.post<ApiResponse<{ is_compliant: boolean; requires_approval: boolean; violations: string[] }>>(
+    '/business/policy/validate',
+    payload
+  );
+  return res.data.data;
+};
+
+export const getBusinessInvoiceByIdApi = async (invoiceId: string): Promise<MyBizInvoice> => {
+  const res = await apiClient.get<ApiResponse<MyBizInvoice>>(`/business/invoices/${invoiceId}`);
+  return res.data.data;
+};
+
+// ================= Coupon & Offers APIs =================
+export interface CouponValidateResult {
+  valid: boolean;
+  code: string;
+  discount_type: 'PERCENTAGE' | 'FLAT' | 'NONE';
+  discount_value: number;
+  discount_amount: number;
+  final_amount: number;
+  message: string;
+}
+
+export const validateCouponApi = async (
+  code: string,
+  orderAmount: number,
+  serviceType?: string
+): Promise<CouponValidateResult> => {
+  const res = await apiClient.post<ApiResponse<CouponValidateResult>>('/coupons/validate', {
+    code,
+    order_amount: orderAmount,
+    service_type: serviceType || 'ALL',
+  });
+  return res.data.data;
+};
+
+export const getActiveCouponsApi = async (serviceType?: string): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<any[]>>('/coupons/active', {
+    params: serviceType ? { service_type: serviceType } : {},
+  });
+  return res.data.data;
+};
+
+// ================= Partner Marketplace API =================
+export interface PartnerRegisterPayload {
+  business_name: string;
+  business_type: string;
+  phone?: string;
+  city?: string;
+  address?: string;
+  tax_id?: string;
+}
+
+export interface PartnerProfileData {
+  id: string;
+  user_id: string;
+  business_name: string;
+  business_type: string;
+  phone?: string;
+  city?: string;
+  address?: string;
+  country: string;
+  tax_id?: string;
+  status: string;
+  is_verified: boolean;
+  commission_rate: number;
+  is_commission_active: boolean;
+  rejection_reason?: string;
+  verified_at?: string;
+  created_at: string;
+}
+
+export const registerPartnerApi = async (payload: PartnerRegisterPayload): Promise<PartnerProfileData> => {
+  const res = await apiClient.post<ApiResponse<PartnerProfileData>>('/partner/register', payload);
+  return res.data.data;
+};
+
+export const getPartnerProfileApi = async (): Promise<PartnerProfileData> => {
+  const res = await apiClient.get<ApiResponse<PartnerProfileData>>('/partner/profile');
+  return res.data.data;
+};
+
+// ================= Wishlist API =================
+export interface BackendWishlistItem {
+  id: string;
+  title: string;
+  category: string;
+  location: string;
+  price: number;
+  rating?: number;
+  image: string;
+  badge?: string;
+  added_at?: string;
+  addedAt?: string;
+}
+
+export const getWishlistApi = async (): Promise<BackendWishlistItem[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: BackendWishlistItem[]; count: number }>>('/wishlist');
+  return res.data?.data?.items || [];
+};
+
+export const addToWishlistApi = async (item: {
+  id: string;
+  title: string;
+  category: string;
+  location: string;
+  price: number;
+  rating?: number;
+  image: string;
+  badge?: string;
+}): Promise<BackendWishlistItem> => {
+  const res = await apiClient.post<ApiResponse<BackendWishlistItem>>('/wishlist', item);
+  return res.data?.data;
+};
+
+export const removeFromWishlistApi = async (itemKey: string): Promise<boolean> => {
+  const res = await apiClient.delete<ApiResponse<{ removed: boolean }>>(`/wishlist/${itemKey}`);
+  return res.data?.data?.removed ?? true;
+};
+
+export const clearWishlistApi = async (): Promise<number> => {
+  const res = await apiClient.delete<ApiResponse<{ cleared_count: number }>>('/wishlist');
+  return res.data?.data?.cleared_count ?? 0;
+};
+
+export const syncWishlistApi = async (items: any[]): Promise<BackendWishlistItem[]> => {
+  const res = await apiClient.post<ApiResponse<{ items: BackendWishlistItem[]; count: number }>>('/wishlist/sync', { items });
+  return res.data?.data?.items || [];
+};
+
+// ================= Locations & Route Validation API =================
+export interface LocationOptionItem {
+  category: string;
+  code?: string;
+  name: string;
+  city: string;
+  country?: string;
+  role: string;
+}
+
+export interface LocationsResponseData {
+  airports: LocationOptionItem[];
+  hotel_cities: LocationOptionItem[];
+  train_stations: LocationOptionItem[];
+  bus_cities: LocationOptionItem[];
+  cab_cities: LocationOptionItem[];
+  package_destinations: LocationOptionItem[];
+}
+
+export const getLocationsApi = async (query?: string): Promise<LocationsResponseData> => {
+  const res = await apiClient.get<ApiResponse<LocationsResponseData>>('/locations', {
+    params: query ? { query } : {},
+  });
+  return res.data?.data;
+};
+
+export const validateRouteApi = async (
+  category: string,
+  origin: string,
+  destination: string
+): Promise<{
+  is_valid: boolean;
+  is_same_location: boolean;
+  message: string;
+  suggested_destinations?: LocationOptionItem[];
+}> => {
+  const res = await apiClient.post<ApiResponse<any>>('/locations/validate-route', {
+    category,
+    origin,
+    destination,
+  });
+  return res.data?.data;
+};
+
+// ================= MAP / PLACES SEARCH API =================
+export interface MapPlaceResult {
+  id: string;
+  name: string;
+  display_name: string;
+  formatted_address: string;
+  category: 'AIRPORT' | 'STATION' | 'HOTEL' | 'LANDMARK' | 'LOCALITY' | 'ADDRESS';
+  category_label: string;
+  lat: number;
+  lon: number;
+  city?: string;
+  state?: string;
+  country?: string;
+  postcode?: string;
+}
+
+export interface RouteEstimateResult {
+  distance_km: number;
+  duration_minutes: number;
+  formatted_duration: string;
+  origin: { lat: number; lon: number };
+  destination: { lat: number; lon: number };
+}
+
+export const searchPlacesApi = async (
+  query: string,
+  options?: { lat?: number; lon?: number; limit?: number }
+): Promise<MapPlaceResult[]> => {
+  const res = await apiClient.get<ApiResponse<MapPlaceResult[]>>('/locations/places-search', {
+    params: {
+      q: query.trim(),
+      lat: options?.lat,
+      lon: options?.lon,
+      limit: options?.limit || 8,
+    },
+  });
+  return res.data?.data || [];
+};
+
+export const reverseGeocodeApi = async (lat: number, lon: number): Promise<MapPlaceResult | null> => {
+  const res = await apiClient.get<ApiResponse<MapPlaceResult>>('/locations/reverse-geocode', {
+    params: { lat, lon },
+  });
+  return res.data?.data || null;
+};
+
+export const getRouteEstimateApi = async (
+  originLat: number,
+  originLon: number,
+  destLat: number,
+  destLon: number
+): Promise<RouteEstimateResult | null> => {
+  const res = await apiClient.get<ApiResponse<RouteEstimateResult>>('/locations/route-estimate', {
+    params: { originLat, originLon, destLat, destLon },
+  });
+  return res.data?.data || null;
+};
+
+// ================= SERVICE-SPECIFIC INTELLIGENT AUTOCOMPLETE API =================
+export interface ServiceLocationSuggestion {
+  id: string;
+  name: string;
+  display_name: string;
+  secondary_description: string;
+  city: string;
+  state?: string;
+  country: string;
+  category: 'AIRPORT' | 'STATION' | 'BUS_STOP' | 'HOTEL' | 'LOCALITY' | 'LANDMARK' | 'ADDRESS' | 'COUNTRY' | 'REGION';
+  category_label: string;
+  code?: string;
+  lat?: number;
+  lon?: number;
+  provider?: string;
+}
+
+export const getServiceLocationsSuggestApi = async (
+  service: string,
+  query: string,
+  limit: number = 10
+): Promise<ServiceLocationSuggestion[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<ServiceLocationSuggestion[]>>('/locations/suggest', {
+      params: { service, q: query.trim(), limit },
+    });
+    return res.data?.data || [];
+  } catch (err) {
+    console.warn(`[LOCATION-API] Failed suggest for ${service}:`, err);
+    return [];
+  }
+};
+
+// ================= TOURS, VISA, VILLAS, INSURANCE APIs =================
+export const searchVillasApi = async (params: { city?: string; max_price?: number }): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: any[] }>>('/villas', { params });
+  return res.data?.data?.items || [];
+};
+
+export const searchToursApi = async (params?: { city?: string; category?: string; max_price?: number }): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: any[] }>>('/tours', { params });
+  return res.data?.data?.items || [];
+};
+
+export const searchVisaApi = async (params?: { country?: string }): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: any[] }>>('/visa', { params });
+  return res.data?.data?.items || [];
+};
+
+export const getInsurancePlansApi = async (params?: { destination?: string }): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<{ items: any[] }>>('/insurance', { params });
+  return res.data?.data?.items || [];
+};
+
+// ================= CUSTOMER DASHBOARD & ACCOUNT APIS =================
+export interface CustomerDashboardMetrics {
+  totalBookings: number;
+  upcomingTrips: number;
+  completedTrips: number;
+  cancelledTrips: number;
+  totalSpent: number;
+  wishlistCount: number;
+  savedTravellersCount: number;
+  profileCompletionPercent: number;
+}
+
+export interface CustomerProfileData {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  maritalStatus?: string;
+  passportNumber?: string;
+  passportExpiry?: string;
+  passportIssuingCountry?: string;
+  panCardNumber?: string;
+  autoInsurancePreferences?: {
+    domestic_hotel?: boolean;
+    domestic_flight?: boolean;
+    international_hotel?: boolean;
+    international_flight?: boolean;
+  };
+  frequentFlyerDetails?: Array<{
+    airline: string;
+    number: string;
+  }>;
+  isVerified?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerUpcomingTrip {
+  id: string;
+  bookingReference: string;
+  serviceType: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  guestName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  createdAt: string;
+  items?: any[];
+}
+
+export interface CustomerDashboardSummary {
+  metrics: CustomerDashboardMetrics;
+  profile: CustomerProfileData;
+  upcomingTrip: CustomerUpcomingTrip | null;
+  recentBookings: {
+    id: string;
+    bookingReference: string;
+    serviceType: string;
+    status: string;
+    totalAmount: number;
+    currency: string;
+    createdAt: string;
+    checkInDate?: string;
+    checkOutDate?: string;
+    guestName?: string;
+  }[];
+}
+
+export interface SavedTraveller {
+  id: string;
+  title: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  dateOfBirth?: string;
+  passengerType: 'ADULT' | 'CHILD' | 'INFANT';
+  phone?: string;
+  email?: string;
+  passportNumber?: string;
+  passportExpiry?: string;
+  nationality?: string;
+  mealPreference?: string;
+  seatPreference?: string;
+  relationship?: string;
+  berthPreference?: string;
+  passportIssuingCountry?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerPaymentItem {
+  id: string;
+  paymentReference: string;
+  paymentMethod: string;
+  amount: number;
+  currency: string;
+  status: string;
+  isDemo: boolean;
+  createdAt: string;
+  booking: {
+    id: string;
+    bookingReference: string;
+    serviceType: string;
+    guestName?: string;
+    bookingStatus: string;
+    totalAmount: number;
+  };
+}
+
+export const getCustomerDashboardSummaryApi = async (): Promise<CustomerDashboardSummary> => {
+  const res = await apiClient.get<ApiResponse<CustomerDashboardSummary>>('/customer/dashboard-summary');
+  return res.data.data;
+};
+
+export const getCustomerProfileApi = async (): Promise<CustomerProfileData> => {
+  const res = await apiClient.get<ApiResponse<CustomerProfileData>>('/customer/profile');
+  return res.data.data;
+};
+
+export const updateCustomerProfileApi = async (payload: Partial<CustomerProfileData>): Promise<CustomerProfileData> => {
+  const res = await apiClient.put<ApiResponse<CustomerProfileData>>('/customer/profile', payload);
+  return res.data.data;
+};
+
+export const getSavedTravellersApi = async (): Promise<SavedTraveller[]> => {
+  const res = await apiClient.get<ApiResponse<SavedTraveller[]>>('/customer/travellers');
+  return res.data.data || [];
+};
+
+export const createSavedTravellerApi = async (payload: Partial<SavedTraveller>): Promise<SavedTraveller> => {
+  const res = await apiClient.post<ApiResponse<SavedTraveller>>('/customer/travellers', payload);
+  return res.data.data;
+};
+
+export const updateSavedTravellerApi = async (id: string, payload: Partial<SavedTraveller>): Promise<SavedTraveller> => {
+  const res = await apiClient.put<ApiResponse<SavedTraveller>>(`/customer/travellers/${id}`, payload);
+  return res.data.data;
+};
+
+export const deleteSavedTravellerApi = async (id: string): Promise<void> => {
+  await apiClient.delete(`/customer/travellers/${id}`);
+};
+
+export const getCustomerPaymentsApi = async (): Promise<CustomerPaymentItem[]> => {
+  const res = await apiClient.get<ApiResponse<CustomerPaymentItem[]>>('/customer/payments');
+  return res.data.data || [];
+};
+
+// ==========================================
+// DUAL WALLET API INTERFACES & CALLS
+// ==========================================
+export interface WalletBalancesResponse {
+  walletId: string;
+  customerId: string;
+  currency: string;
+  cashAvailable: number;
+  cashReserved: number;
+  promoAvailable: number;
+  promoReserved: number;
+  totalEligible: number;
+  totalSpendable?: number;
+  cashLocked?: number;
+  promoLocked?: number;
+  status: 'ACTIVE' | 'FROZEN' | 'SUSPENDED';
+  freezeReason?: string | null;
+  features: {
+    cashTopupEnabled: boolean;
+    promotionalEnabled: boolean;
+    withdrawalEnabled: boolean;
+  };
+}
+
+export interface WalletTransactionItem {
+  id: string;
+  transaction_id: string;
+  customer_id: string;
+  wallet_type: 'CASH' | 'PROMOTIONAL';
+  direction: 'CREDIT' | 'DEBIT';
+  transaction_type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description: string;
+  reference_id?: string;
+  booking_id?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface PromotionalCreditLot {
+  id: string;
+  lot_reference: string;
+  reward_source: string;
+  original_amount: number;
+  remaining_amount: number;
+  currency: string;
+  applicable_services: string[] | string;
+  min_booking_amount: number;
+  max_usable_amount?: number;
+  issue_date: string;
+  expiry_date: string;
+  status: string;
+}
+
+export interface WalletSummaryResponse {
+  balances: WalletBalancesResponse;
+  totalCredited: number;
+  totalRedeemed: number;
+  expiringSoonAmount: number;
+  nearestExpiryDate: string | null;
+  recentTransactions: WalletTransactionItem[];
+}
+
+export interface WalletQuoteResponse {
+  bookingAmount: number;
+  serviceType: string;
+  walletStatus: string;
+  balances: {
+    cashAvailable: number;
+    promoAvailable: number;
+  };
+  eligible: {
+    promoAmount: number;
+    cashAmount: number;
+    totalWalletEligible: number;
+    remainingOnlinePayable: number;
+    promoLotsCount: number;
+  };
+}
+
+export const getWalletBalancesApi = async (): Promise<WalletBalancesResponse> => {
+  const res = await apiClient.get<ApiResponse<WalletBalancesResponse>>('/wallet');
+  return res.data.data;
+};
+
+export const getWalletSummaryApi = async (): Promise<WalletSummaryResponse> => {
+  const res = await apiClient.get<ApiResponse<WalletSummaryResponse>>('/wallet/summary');
+  return res.data.data;
+};
+
+export const getWalletTransactionsApi = async (params?: {
+  page?: number;
+  limit?: number;
+  wallet_type?: string;
+  direction?: string;
+  status?: string;
+}): Promise<{ items: WalletTransactionItem[]; pagination: any }> => {
+  const res = await apiClient.get<ApiResponse<{ items: WalletTransactionItem[]; pagination: any }>>('/wallet/transactions', { params });
+  return res.data.data;
+};
+
+export const getPromotionalLotsApi = async (): Promise<PromotionalCreditLot[]> => {
+  const res = await apiClient.get<ApiResponse<PromotionalCreditLot[]>>('/wallet/promotional-lots');
+  return res.data.data;
+};
+
+export const getWalletQuoteApi = async (serviceType: string, bookingAmount: number): Promise<WalletQuoteResponse> => {
+  const res = await apiClient.post<ApiResponse<WalletQuoteResponse>>('/wallet/quote', {
+    service_type: serviceType,
+    booking_amount: bookingAmount,
+  });
+  return res.data.data;
+};
+
+export const applyWalletToBookingApi = async (
+  bookingId: string,
+  cashAmount: number,
+  promoAmount: number
+): Promise<{ reservationId: string; reservationReference: string; cashReserved: number; promoReserved: number }> => {
+  const res = await apiClient.post<ApiResponse<any>>('/wallet/apply-to-booking', {
+    booking_id: bookingId,
+    cash_amount: cashAmount,
+    promo_amount: promoAmount,
+  });
+  return res.data.data;
+};
+
+export const releaseWalletReservationApi = async (reservationId: string, reason?: string): Promise<void> => {
+  await apiClient.post('/wallet/release-reservation', {
+    reservation_id: reservationId,
+    reason,
+  });
+};
+
+export const createWalletTopupOrderApi = async (amount: number): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/wallet/topup/orders', { amount });
+  return res.data.data;
+};
+
+export const verifyWalletTopupApi = async (payload: {
+  amount?: number;
+  order_id?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/wallet/topup/verify', payload);
+  return res.data.data;
+};
+
+// ================= VENDOR ONBOARDING, KYC & PROPERTY API =================
+export interface VendorRegisterPayload {
+  full_name: string;
+  business_name: string;
+  email: string;
+  phone: string;
+  password: string;
+  property_type?: string;
+  city: string;
+  state?: string;
+  address?: string;
+  tax_id?: string;
+  room_count?: string;
+  agree_terms: boolean;
+}
+
+export interface VendorOverviewResponse {
+  vendor: {
+    id: string;
+    business_name: string;
+    owner_name?: string;
+    property_type: string;
+    onboarding_status: string;
+    kyc_status: string;
+    is_verified: boolean;
+    city: string;
+    state: string;
+    created_at: string;
+  };
+  kyc: any;
+  checklist: {
+    registered: boolean;
+    kyc_submitted: boolean;
+    kyc_approved: boolean;
+    property_listed: boolean;
+    property_approved: boolean;
+    is_live: boolean;
+  };
+  properties_count: number;
+  approved_properties_count: number;
+  unread_notifications: number;
+}
+
+export interface VendorPropertyCreatePayload {
+  name: string;
+  property_type?: string;
+  star_rating?: number;
+  city: string;
+  state?: string;
+  address: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  overview: string;
+  amenities?: string[];
+  featured_image: string;
+  images?: string[];
+  starting_price: number;
+  rooms: Array<{
+    room_type: string;
+    bed_type?: string;
+    max_occupancy?: number;
+    price_per_night: number;
+    taxes_per_night?: number;
+    available_rooms?: number;
+    amenities?: string[];
+  }>;
+}
+
+export const registerVendorApi = async (payload: VendorRegisterPayload): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/vendor/register', payload);
+  return res.data.data;
+};
+
+export const getVendorDashboardApi = async (): Promise<VendorOverviewResponse> => {
+  const res = await apiClient.get<ApiResponse<VendorOverviewResponse>>('/vendor/dashboard');
+  return res.data.data;
+};
+
+export const getVendorProfileApi = async (): Promise<any> => {
+  const res = await apiClient.get<ApiResponse<any>>('/vendor/profile');
+  return res.data.data;
+};
+
+export const updateVendorProfileApi = async (payload: any): Promise<any> => {
+  const res = await apiClient.put<ApiResponse<any>>('/vendor/profile', payload);
+  return res.data.data;
+};
+
+export const getVendorKYCApi = async (): Promise<any> => {
+  const res = await apiClient.get<ApiResponse<any>>('/vendor/kyc');
+  return res.data.data;
+};
+
+export const submitVendorKYCApi = async (payload: any): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/vendor/kyc/submit', payload);
+  return res.data.data;
+};
+
+export const getVendorPropertiesApi = async (): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<any[]>>('/vendor/properties');
+  return res.data.data;
+};
+
+export const createVendorPropertyApi = async (payload: VendorPropertyCreatePayload): Promise<any> => {
+  const res = await apiClient.post<ApiResponse<any>>('/vendor/properties', payload);
+  return res.data.data;
+};
+
+export const getVendorNotificationsApi = async (): Promise<any[]> => {
+  const res = await apiClient.get<ApiResponse<any[]>>('/vendor/notifications');
+  return res.data.data;
+};
+
+export const markVendorNotificationReadApi = async (id: string): Promise<any> => {
+  const res = await apiClient.patch<ApiResponse<any>>(`/vendor/notifications/${id}/read`);
+  return res.data.data;
+};
+
+
+
+
+
+
+
+
+
+// ==========================================
+// ADMIN SERVICES & INTERFACES
+// ==========================================
+
+
+export const adminApiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
+
+adminApiClient.interceptors.request.use((config) => {
+  const token = (localStorage.getItem('admin_token') || localStorage.getItem('ss_access_token'));
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+adminApiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    // If request returns 401 Unauthorized
+    if (error.response?.status === 401) {
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+      // Do not clear tokens or emit unauthorized event for the actual login attempt
+      if (!isLoginRequest) {
+        localStorage.removeItem('admin_token'); localStorage.removeItem('ss_access_token'); localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        window.dispatchEvent(new CustomEvent('admin:unauthorized'));
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+/**
+ * Interactive Admin Login: Authenticates an administrator with the backend.
+ * Never stores or embeds credentials in the source code or bundle.
+ */
+export const loginAdmin = async (payload: { email: string; password: string }): Promise<AuthResponse> => {
+  const response = await adminApiClient.post<ApiResponse<AuthResponse>>('/auth/login', payload);
+  const authData = response.data.data;
+  const token = authData.tokens?.accessToken || (authData.tokens as any)?.access_token;
+  if (token) {
+    localStorage.setItem('admin_token', token); localStorage.setItem('ss_access_token', token); localStorage.setItem('admin_token', token);
+    if (authData.user) {
+      localStorage.setItem('admin_user', JSON.stringify(authData.user));
+    }
+  }
+  return authData;
+};
+
+/**
+ * 1-Click Security Bypass / Demo Login for Admin console.
+ */
+export const demoLoginAdmin = async (role: 'ADMIN' = 'ADMIN'): Promise<AuthResponse> => {
+  const response = await adminApiClient.post<ApiResponse<AuthResponse>>('/auth/demo-login', { role });
+  const authData = response.data.data;
+  const token = authData.tokens?.accessToken || (authData.tokens as any)?.access_token;
+  if (token) {
+    localStorage.setItem('admin_token', token); localStorage.setItem('ss_access_token', token); localStorage.setItem('admin_token', token);
+    if (authData.user) {
+      localStorage.setItem('admin_user', JSON.stringify(authData.user));
+    }
+  }
+  return authData;
+};
+
+/**
+ * Admin Logout: Clears stored session tokens and notifies the application.
+ */
+export const logoutAdmin = (): void => {
+  localStorage.removeItem('admin_token'); localStorage.removeItem('ss_access_token'); localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_user');
+  window.dispatchEvent(new CustomEvent('admin:logout'));
+};
+
+export const getAdminHealth = async (): Promise<HealthCheckResponse> => {
+  const response = await adminApiClient.get<ApiResponse<HealthCheckResponse>>('/health');
+  return response.data.data;
+};
+
+export const getAdminOverview = async (): Promise<DashboardStats> => {
+  const response = await adminApiClient.get<ApiResponse<DashboardStats>>('/admin/overview');
+  return response.data.data;
+};
+
+export const getAdminBookings = async (params?: { status?: string; page?: number; limit?: number }) => {
+  const response = await adminApiClient.get('/admin/bookings', { params });
+  return response.data.data;
+};
+
+export const getAdminFlights = async () => {
+  const response = await adminApiClient.get('/flights');
+  return response.data.data;
+};
+
+export const getAdminHotels = async () => {
+  const response = await adminApiClient.get('/hotels');
+  return response.data.data;
+};
+
+export const getAdminBuses = async () => {
+  const response = await adminApiClient.get('/buses');
+  return response.data.data;
+};
+
+export const getAdminPackages = async (params?: {
+  status?: string;
+  search?: string;
+  region?: string;
+  theme?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const response = await adminApiClient.get('/admin/packages', { params: { limit: 100, ...params } });
+  return response.data.data;
+};
+
+export const updateAdminPackageStatus = async (packageId: string, status: string) => {
+  const response = await adminApiClient.patch(`/admin/packages/${packageId}/status`, { status });
+  return response.data;
+};
+
+export const bulkUpdateAdminPackageStatus = async (status: string, packageIds?: string[]) => {
+  const response = await adminApiClient.post('/admin/packages/bulk-status', { status, package_ids: packageIds });
+  return response.data;
+};
+
+export const getAdminTrains = async () => {
+  const response = await adminApiClient.get('/trains');
+  return response.data.data;
+};
+
+export const getAdminCabs = async () => {
+  const response = await adminApiClient.get('/cabs');
+  return response.data.data;
+};
+
+export const getAdminUsers = async (params?: { page?: number; limit?: number }) => {
+  const response = await adminApiClient.get('/admin/users', { params });
+  return response.data.data;
+};
+
+export const getAdminAuditLogs = async (limit = 50) => {
+  const response = await adminApiClient.get('/admin/audit-logs', { params: { limit } });
+  return response.data.data;
+};
+
+export const getAdminCoupons = async () => {
+  const response = await adminApiClient.get('/admin/coupons');
+  return response.data.data;
+};
+
+export const updateAdminBookingStatus = async (
+  bookingId: string,
+  payload: string | { status: string; cancellation_reason?: string }
+) => {
+  const body = typeof payload === 'string' ? { status: payload } : payload;
+  const response = await adminApiClient.patch(`/admin/bookings/${bookingId}/status`, body);
+  return response.data;
+};
+
+export const createAdminFlight = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/flights', payload);
+  return response.data.data;
+};
+
+export const createAdminHotel = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/hotels', payload);
+  return response.data.data;
+};
+
+export const createAdminBus = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/buses', payload);
+  return response.data.data;
+};
+
+export const createAdminTrain = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/trains', payload);
+  return response.data.data;
+};
+
+export const createAdminCab = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/cabs', payload);
+  return response.data.data;
+};
+
+export const createAdminPackage = async (payload: any) => {
+  const response = await adminApiClient.post('/admin/packages', payload);
+  return response.data.data;
+};
+
+export const deleteAdminInventoryItem = async (itemType: string, itemId: string) => {
+  const response = await adminApiClient.delete(`/admin/inventory/${itemType}/${itemId}`);
+  return response.data;
+};
+
+export const updateAdminInventoryItem = async (itemType: string, itemId: string, payload: Record<string, any>) => {
+  const response = await adminApiClient.patch(`/admin/inventory/${itemType}/${itemId}`, payload);
+  return response.data;
+};
+
+export const updateAdminUserStatus = async (userId: string, isActive: boolean) => {
+  const response = await adminApiClient.patch(`/admin/users/${userId}/status`, { is_active: isActive });
+  return response.data;
+};
+
+export const createAdminCoupon = async (payload: {
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  max_discount_amount?: number | null;
+  min_order_amount: number;
+  service_type: string;
+  description?: string;
+  is_active?: boolean;
+}) => {
+  const response = await adminApiClient.post('/admin/coupons', payload);
+  return response.data.data;
+};
+
+export const updateAdminCoupon = async (couponId: string, payload: {
+  discount_type?: string;
+  discount_value?: number;
+  max_discount_amount?: number | null;
+  min_order_amount?: number;
+  service_type?: string;
+  description?: string;
+  is_active?: boolean;
+}) => {
+  const response = await adminApiClient.patch(`/admin/coupons/${couponId}`, payload);
+  return response.data.data;
+};
+
+export const deleteAdminCoupon = async (couponId: string) => {
+  const response = await adminApiClient.delete(`/admin/coupons/${couponId}`);
+  return response.data;
+};
+
+export const getAdminPendingProperties = async () => {
+  const response = await adminApiClient.get('/admin/properties/pending');
+  return response.data.data;
+};
+
+export const approveAdminProperty = async (propertyId: string) => {
+  const response = await adminApiClient.post(`/admin/properties/${propertyId}/approve`);
+  return response.data;
+};
+
+export const rejectAdminProperty = async (propertyId: string, rejectionReason?: string) => {
+  const response = await adminApiClient.post(`/admin/properties/${propertyId}/reject`, {
+    rejection_reason: rejectionReason || 'Does not meet platform standards',
+  });
+  return response.data;
+};
+
+// ================= Pricing & Dynamic Markup API =================
+export interface AdminPricingRule {
+  id: string;
+  name: string;
+  channel: 'B2C' | 'B2B' | 'ALL';
+  service_type: string;
+  company_id?: string | null;
+  company_name?: string | null;
+  calculation_type: 'PERCENTAGE_MARKUP' | 'FIXED_MARKUP' | 'PERCENTAGE_DISCOUNT' | 'FIXED_DISCOUNT';
+  value: number;
+  min_markup_amount?: number | null;
+  max_markup_amount?: number | null;
+  priority: number;
+  valid_from: string;
+  valid_until?: string | null;
+  is_active: boolean;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PricingSimulationResult {
+  supplier_base_fare: number;
+  supplier_taxes: number;
+  markup_amount: number;
+  markup_percentage: number;
+  selling_base_fare: number;
+  total_selling_price: number;
+  platform_margin: number;
+  channel: string;
+  service_type: string;
+  rule_applied: {
+    id: string;
+    name: string;
+    calculation_type: string;
+    value: number;
+    channel: string;
+    priority: number;
+  } | null;
+}
+
+export interface PricingComparisonResult {
+  base_fare: number;
+  taxes: number;
+  service_type: string;
+  b2c: PricingSimulationResult;
+  b2b: PricingSimulationResult;
+  difference: {
+    markup_difference: number;
+    total_price_difference: number;
+    b2b_savings_percentage: number;
+  };
+}
+
+export interface PricingAuditLog {
+  id: string;
+  rule_id?: string | null;
+  rule_name?: string | null;
+  admin_id?: string | null;
+  admin_email: string;
+  action: string;
+  previous_state: Record<string, any>;
+  new_state: Record<string, any>;
+  reason?: string;
+  created_at: string;
+}
+
+export const getAdminPricingRules = async (params?: { channel?: string; service_type?: string }) => {
+  const response = await adminApiClient.get('/admin/pricing/rules', { params });
+  return response.data.data as AdminPricingRule[];
+};
+
+export const createAdminPricingRule = async (payload: Partial<AdminPricingRule> & { reason?: string }) => {
+  const response = await adminApiClient.post('/admin/pricing/rules', payload);
+  return response.data.data as AdminPricingRule;
+};
+
+export const updateAdminPricingRule = async (id: string, payload: Partial<AdminPricingRule> & { reason?: string }) => {
+  const response = await adminApiClient.put(`/admin/pricing/rules/${id}`, payload);
+  return response.data.data as AdminPricingRule;
+};
+
+export const toggleAdminPricingRule = async (id: string) => {
+  const response = await adminApiClient.patch(`/admin/pricing/rules/${id}/toggle`);
+  return response.data;
+};
+
+export const deleteAdminPricingRule = async (id: string) => {
+  const response = await adminApiClient.delete(`/admin/pricing/rules/${id}`);
+  return response.data;
+};
+
+export const simulateAdminPricingQuote = async (payload: {
+  base_fare: number;
+  taxes?: number;
+  channel: 'B2C' | 'B2B';
+  service_type: string;
+  company_id?: string | null;
+  custom_rule?: {
+    calculation_type: string;
+    value: number;
+    min_markup_amount?: number;
+    max_markup_amount?: number;
+  };
+}) => {
+  const response = await adminApiClient.post('/admin/pricing/simulate', payload);
+  return response.data.data as PricingSimulationResult;
+};
+
+export const getAdminPricingComparison = async (params: {
+  base_fare: number;
+  taxes?: number;
+  service_type: string;
+}) => {
+  const response = await adminApiClient.get('/admin/pricing/comparison', { params });
+  return response.data.data as PricingComparisonResult;
+};
+
+export const getAdminPricingAuditLogs = async (limit = 50) => {
+  const response = await adminApiClient.get('/admin/pricing/audit-logs', { params: { limit } });
+  return response.data.data as PricingAuditLog[];
+};
+
+export const getAdminCompanies = async () => {
+  const response = await adminApiClient.get('/admin/companies');
+  return response.data.data;
+};
+
+export const toggleAdminCompanyStatus = async (companyId: string, isActive: boolean) => {
+  const response = await adminApiClient.patch(`/admin/companies/${companyId}/status`, { is_active: isActive });
+  return response.data;
+};
+
+export const getAdminPartners = async () => {
+  const response = await adminApiClient.get('/admin/partners');
+  return response.data.data;
+};
+
+export const updateAdminPartnerStatus = async (partnerId: string, payload: { status: string; is_verified: boolean; rejection_reason?: string }) => {
+  const response = await adminApiClient.patch(`/admin/partners/${partnerId}/status`, payload);
+  return response.data;
+};
+
+export const getAdminPayments = async (limit = 100) => {
+  const response = await adminApiClient.get('/admin/payments', { params: { limit } });
+  return response.data.data;
+};
+
+// ================= Universal Service Management API =================
+export const getAdminServiceItems = async (
+  entity: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    is_active?: boolean | string;
+    publication_status?: string;
+    region?: string;
+    sort?: string;
+  }
+) => {
+  const response = await adminApiClient.get(`/admin/services/${entity}`, { params });
+  return response.data.data;
+};
+
+export const getAdminServiceItemDetails = async (entity: string, id: string) => {
+  const response = await adminApiClient.get(`/admin/services/${entity}/${id}`);
+  return response.data.data;
+};
+
+export const createAdminServiceItem = async (entity: string, payload: Record<string, any>) => {
+  const response = await adminApiClient.post(`/admin/services/${entity}`, payload);
+  return response.data.data;
+};
+
+export const updateAdminServiceItemRecord = async (
+  entity: string,
+  id: string,
+  payload: Record<string, any>
+) => {
+  const response = await adminApiClient.put(`/admin/services/${entity}/${id}`, payload);
+  return response.data.data;
+};
+
+export const patchAdminServiceItemStatus = async (
+  entity: string,
+  id: string,
+  payload: { status?: string; is_active?: boolean }
+) => {
+  const response = await adminApiClient.patch(`/admin/services/${entity}/${id}/status`, payload);
+  return response.data.data;
+};
+
+export const deleteAdminServiceItemRecord = async (entity: string, id: string) => {
+  const response = await adminApiClient.delete(`/admin/services/${entity}/${id}`);
+  return response.data;
+};
+
+export const bulkUpdateAdminServiceStatus = async (
+  entity: string,
+  payload: { status?: string; is_active?: boolean; ids?: string[] }
+) => {
+  const response = await adminApiClient.post(`/admin/services/${entity}/bulk-status`, payload);
+  return response.data;
+};
+
+// ================= Universal Import & Export API =================
+export const previewAdminImport = async (
+  entity: string,
+  payload: { rows?: any[]; file_data?: string; file_name?: string }
+) => {
+  const response = await adminApiClient.post(`/admin/io/${entity}/preview`, payload);
+  return response.data.data;
+};
+
+export const executeAdminImport = async (
+  entity: string,
+  payload: { rows: any[]; file_name?: string }
+) => {
+  const response = await adminApiClient.post(`/admin/io/${entity}/import`, payload);
+  return response.data;
+};
+
+export const getAdminImportHistory = async () => {
+  const response = await adminApiClient.get('/admin/io/history');
+  return response.data.data;
+};
+
+// ================= Extended Admin Operations =================
+export const getAdminDashboardOverview = async (params?: {
+  date_range?: string;
+  channel?: string;
+  service?: string;
+}) => {
+  const response = await adminApiClient.get('/admin/overview', { params });
+  return response.data.data;
+};
+
+export const getAdminCustomers = async (params?: { search?: string; status?: string }) => {
+  const response = await adminApiClient.get('/admin/customers', { params });
+  return response.data.data;
+};
+
+export const updateAdminCustomerStatus = async (
+  customerId: string,
+  payload: { is_active: boolean; reason?: string }
+) => {
+  const response = await adminApiClient.patch(`/admin/customers/${customerId}/status`, payload);
+  return response.data;
+};
+
+export const getAdminBookingDetails = async (bookingId: string) => {
+  const response = await adminApiClient.get(`/admin/bookings/${bookingId}`);
+  return response.data.data;
+};
+
+
+export const getAdminRoles = async () => {
+  const response = await adminApiClient.get('/admin/roles');
+  return response.data.data;
+};
+
+export const updateAdminUserRole = async (userId: string, role: string) => {
+  const response = await adminApiClient.patch(`/admin/users/${userId}/role`, { role });
+  return response.data;
+};
+
+// ==========================================
+// Admin Dual Wallet APIs
+// ==========================================
+
+export interface AdminWalletOverview {
+  totalWallets: number;
+  activeWallets: number;
+  frozenWallets: number;
+  totalCashLiability: number;
+  totalPromoLiability: number;
+  activePromotionalLots: number;
+  volume24h: {
+    totalCredits: number;
+    totalDebits: number;
+    count: number;
+  };
+  reconciliation: {
+    cashVariance: number;
+    promoVariance: number;
+    isBalanced: boolean;
+  };
+}
+
+export interface AdminWalletCustomerItem {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  status: 'ACTIVE' | 'FROZEN' | 'SUSPENDED';
+  currency: string;
+  cash_available: string | number;
+  cash_reserved: string | number;
+  promo_available: string | number;
+  promo_reserved: string | number;
+  freeze_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminWalletTransactionItem {
+  id: string;
+  transaction_id: string;
+  customer_id: string;
+  customer_name?: string;
+  customer_email?: string;
+  wallet_type: 'CASH' | 'PROMOTIONAL';
+  direction: 'CREDIT' | 'DEBIT';
+  transaction_type: string;
+  amount: string | number;
+  currency: string;
+  status: string;
+  description: string;
+  reference_id?: string;
+  created_at: string;
+}
+
+export interface AdminPromotionalCampaign {
+  id: string;
+  campaign_code: string;
+  title: string;
+  description?: string;
+  reward_type: string;
+  percentage_rate: string | number;
+  flat_amount: string | number;
+  max_reward_per_booking?: string | number;
+  min_booking_amount?: string | number;
+  valid_days: number;
+  applicable_services: string[] | string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminWalletReconciliation {
+  asOf: string;
+  ledger: {
+    totalJournals: number;
+    totalLedgerEntries: number;
+    cashLiabilities: number;
+    promoLiabilities: number;
+  };
+  wallets: {
+    activeWalletsCount: number;
+    totalCashBalances: number;
+    totalPromoBalances: number;
+  };
+  variance: {
+    cashVariance: number;
+    promoVariance: number;
+    isBalanced: boolean;
+  };
+}
+
+export interface AdminWalletConfig {
+  features: {
+    WALLET_ENABLED: boolean;
+    CASH_WALLET_ENABLED: boolean;
+    CASH_TOPUP_ENABLED: boolean;
+    PROMOTIONAL_WALLET_ENABLED: boolean;
+    CASH_WITHDRAWAL_ENABLED: boolean;
+    WALLET_PAYMENT_ENABLED: boolean;
+  };
+  configItems: Array<{
+    config_key: string;
+    config_value: string;
+    description: string;
+    data_type: string;
+    updated_at: string;
+  }>;
+}
+
+export const getAdminWalletOverview = async (): Promise<AdminWalletOverview> => {
+  const response = await adminApiClient.get('/admin/wallet/overview');
+  return response.data.data;
+};
+
+export const getAdminWalletCustomers = async (params?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ items: AdminWalletCustomerItem[]; pagination: any }> => {
+  const response = await adminApiClient.get('/admin/wallet/customers', { params });
+  return response.data.data;
+};
+
+export const freezeAdminWalletCustomer = async (
+  customerId: string,
+  payload: { freeze: boolean; reason: string }
+): Promise<any> => {
+  const response = await adminApiClient.post(`/admin/wallet/customers/${customerId}/freeze`, payload);
+  return response.data;
+};
+
+export const adjustAdminWalletBalance = async (payload: {
+  customer_id: string;
+  wallet_type: 'CASH' | 'PROMOTIONAL';
+  direction: 'CREDIT' | 'DEBIT';
+  amount: number;
+  reason: string;
+  reference_id?: string;
+}): Promise<any> => {
+  const response = await adminApiClient.post('/admin/wallet/adjust', payload);
+  return response.data;
+};
+
+export const getAdminWalletTransactions = async (params?: {
+  customer_id?: string;
+  wallet_type?: string;
+  direction?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ items: AdminWalletTransactionItem[]; pagination: any }> => {
+  const response = await adminApiClient.get('/admin/wallet/transactions', { params });
+  return response.data.data;
+};
+
+export const getAdminWalletCampaigns = async (): Promise<AdminPromotionalCampaign[]> => {
+  const response = await adminApiClient.get('/admin/wallet/campaigns');
+  return response.data.data;
+};
+
+export const toggleAdminWalletCampaign = async (campaignId: string): Promise<any> => {
+  const response = await adminApiClient.patch(`/admin/wallet/campaigns/${campaignId}/toggle`);
+  return response.data;
+};
+
+export const createAdminWalletCampaign = async (payload: Partial<AdminPromotionalCampaign>): Promise<any> => {
+  const response = await adminApiClient.post('/admin/wallet/campaigns', payload);
+  return response.data;
+};
+
+export const getAdminWalletReconciliation = async (): Promise<AdminWalletReconciliation> => {
+  const response = await adminApiClient.get('/admin/wallet/reconciliation');
+  return response.data.data;
+};
+
+export const getAdminWalletConfig = async (): Promise<AdminWalletConfig> => {
+  const response = await adminApiClient.get('/admin/wallet/config');
+  return response.data.data;
+};
+
+export const updateAdminWalletConfig = async (key: string, value: string): Promise<any> => {
+  const response = await adminApiClient.put('/admin/wallet/config', { key, value });
+  return response.data;
+};
+
+
+
+
+
+// ================= SS Journey myBiz Admin B2B APIs =================
+export interface AdminBusinessCompany {
+  id: string;
+  name: string;
+  account_type: 'CORPORATE' | 'AGENCY';
+  billing_email: string;
+  contact_person_name?: string;
+  contact_person_phone?: string;
+  gstin?: string;
+  pan?: string;
+  industry?: string;
+  company_size?: string;
+  credit_limit: number;
+  credit_used: number;
+  verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+  rejection_reason?: string;
+  verified_at?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminCompanyDetail {
+  company: AdminBusinessCompany;
+  employees: any[];
+  policy?: any;
+  bookings: any[];
+  invoices: any[];
+}
+
+export const getAdminBusinessCompanies = async (params?: {
+  search?: string;
+  account_type?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ companies: AdminBusinessCompany[]; total: number; page: number; totalPages: number }> => {
+  const response = await adminApiClient.get('/admin/business/companies', { params });
+  return response.data.data;
+};
+
+export const getAdminBusinessCompanyById = async (companyId: string): Promise<AdminCompanyDetail> => {
+  const response = await adminApiClient.get(`/admin/business/companies/${companyId}`);
+  return response.data.data;
+};
+
+export const verifyAdminBusinessCompany = async (companyId: string): Promise<any> => {
+  const response = await adminApiClient.post(`/admin/business/companies/${companyId}/verify`);
+  return response.data;
+};
+
+export const rejectAdminBusinessCompany = async (companyId: string, reason: string): Promise<any> => {
+  const response = await adminApiClient.post(`/admin/business/companies/${companyId}/reject`, { reason });
+  return response.data;
+};
+
+export const suspendAdminBusinessCompany = async (companyId: string, suspend: boolean): Promise<any> => {
+  const response = await adminApiClient.post(`/admin/business/companies/${companyId}/suspend`, { suspend });
+  return response.data;
+};
+
+export const updateAdminBusinessCompanyCredit = async (companyId: string, credit_limit: number): Promise<any> => {
+  const response = await adminApiClient.put(`/admin/business/companies/${companyId}/credit`, { credit_limit });
+  return response.data;
+};
