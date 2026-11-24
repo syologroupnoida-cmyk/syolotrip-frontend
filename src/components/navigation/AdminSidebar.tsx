@@ -134,7 +134,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             <div className="flex items-center gap-2.5">
               <img 
                 src="/assets/syolo-trips-emblem.png" 
-                alt="SS Journey" 
+                alt="Syolo Trips" 
                 className="w-9 h-9 object-contain drop-shadow"
               />
               <div>
@@ -143,7 +143,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     theme === 'dark' ? 'text-white' : 'text-slate-900'
                   }`}
                 >
-                  <span className="text-[#00aeef]">SS</span> <span className="text-[#ff9900]">JOURNEY</span>
+                  <span className="text-[#00aeef]">SYOLO</span> <span className="text-[#ff9900]">TRIPS</span>
                 </span>
                 <span className="block text-[9px] uppercase font-bold tracking-widest text-brand-500">
                   ADMIN PLATFORM
