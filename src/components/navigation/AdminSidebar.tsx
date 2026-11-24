@@ -35,7 +35,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onClose,
 }) => {
   const { theme } = useTheme();
-  const { hasPermission, isSuperAdmin } = useRBAC();
+  const { hasPermission, isSuperAdmin, isAdmin } = useRBAC();
 
   const allNavSections: NavSection[] = [
     {
@@ -97,7 +97,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => {
-        if (isSuperAdmin || !item.permission) return true;
+        if (isAdmin || isSuperAdmin || !item.permission) return true;
         return hasPermission(item.permission);
       }),
     }))
