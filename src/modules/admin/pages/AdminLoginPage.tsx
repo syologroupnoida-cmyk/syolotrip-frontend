@@ -259,12 +259,11 @@ export const AdminLoginPage: React.FC = () => {
             </div>
           </form>
 
-          {/* Security Notice Footer */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-            <p className="text-[11px] leading-relaxed text-slate-400">
-              🔒 <strong>SS Journey Security Protocol:</strong> Unauthorized access attempts are logged with client IP and reported. Interactive password authentication is mandatory.
-            </p>
-          </div>
+            <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                🔒 <strong>SyoloTrip Security Protocol:</strong> Unauthorized access attempts are logged with client IP and reported. Interactive password authentication is mandatory.
+              </p>
+            </div>
         </div>
       </div>
     </div>
